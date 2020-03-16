@@ -1,0 +1,152 @@
+---
+title: "Modeling and prediction for movies"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(knitr)
+library(ggplot2)
+library(colorspace)
+library(tidyr)
+library(dplyr)
+```
+
+### Load data
+
+Make sure your data and R Markdown files are in the same directory. When loaded
+your data file will be called `movies`. Delete this note when before you submit 
+your work. 
+
+```{r load-data}
+load("movies.Rdata")
+```
+
+
+
+* * *
+
+## Part 1: Data
+
+IMDb(Internet Movie Database) is an online database of information related to films, television programs, home videos, video games, and streaming content online – including cast, production crew and personal biographies, plot summaries, trivia, fan and critical reviews, and ratings.
+Most data in the database is provided by volunteer contributors. The registration process is necessary to contribute information to the site.Users are also invited to rate any film on a scale of 1 to 10, and the totals are converted into a weighted mean-rating that is displayed beside each title, with online filters employed to deter ballot-stuffing.
+
+Rotten Tomatoes is an American review-aggregation website for film and television.
+For function critic aggregate score, Rotten Tomatoes staff first collect online reviews from writers who are certified members of various writing guilds or film critic-associations.To be accepted as a critic on the website, a critic's original reviews must garner a specific number of "likes" from users. Those classified as "Top Critics" generally write for major newspapers. The critics upload their reviews to the movie page on the website, and need to mark their review "fresh" if it's generally favorable or "rotten" otherwise. It is necessary for the critic to do so as some reviews are qualitative and do not grant a numeric score, making it impossible for the system to be automatic.
+For function audience score and reviews, each movie features a "user average", which calculates the percentage of registered users who have rated the film positively on a 5-star scale, similar to calculation of recognized critics' reviews.
+
+Generabizability: Both of the two datasets collect data from their registrators who are younger and familiar with the internet. The view from elder people are not considered.
+Causality: The datas are collected from anoymous survey so they are randomly assigned.
+
+* * *
+
+## Part 2: Research question
+
+For different types of films, is the audience score associated with the critics_score?
+
+variables: title_type, runtime, audience_score
+
+Relevance: Whether or not that for different types of the films, how the critics_scores fits with the audience score.
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+
+```{r analysis}
+
+q <- select(movies, title_type, audience_score, critics_score)
+
+docu <- q %>%
+     filter(title_type == "Documentary")
+
+docuLine <- lm(audience_score ~ critics_score, data = docu)
+
+summary(docuLine)
+
+featureF <- q %>%
+     filter(title_type == "Feature Film")
+
+FFLine <- lm(audience_score ~ critics_score, data = featureF)
+
+summary(FFLine)
+
+
+TVM <- q %>%
+     filter(title_type == "TV Movie")
+
+TVMLine <- lm(audience_score ~ critics_score, data = TVM)
+
+summary(TVMLine)
+
+```
+
+```{r draw the plot}
+ggplot(data = movies, aes(x = critics_score,colour = title_type , y = audience_score)) + 
+     geom_jitter() +
+     geom_smooth(method = "lm")
+```
+
+
+From the analysis, the slope of the documentary is the smallest. The slope of the TV movie is the largest.
+
+This can be seen on the plot clearly. The line of documentary is nearly horizontal, but the line of TV movie is much more cliffy.
+
+From the plot and the analysis, the audience scores will be more dependent on the critics scores for TV movies rather than the documentaries.
+
+* * *
+
+## Part 4: Modeling
+
+```{r}
+library(MASS)
+
+q4 <- lm(audience_score ~ critics_rating +genre + critics_rating + audience_rating + mpaa_rating +  dvd_rel_year + dvd_rel_month + dvd_rel_day + best_pic_win+best_actor_win + best_actress_win + best_dir_win + top200_box+ runtime + thtr_rel_year + thtr_rel_month + thtr_rel_day + imdb_rating + imdb_num_votes, data = movies)
+
+stepAIC(q4, direction = "backward")
+
+```
+From the backward selection, the selected variables are : genre, audience_rating, dvd_rel_year, dvd_rel_day, runtime, thtr_rel_month, imdb_rating, imdb_num_votes.
+
+Exclude certain variables because the AIC are smaller than we need.
+
+Because a lot of variables seem to associate with the audience_scores, I choose the backward selection to make it quicker to find the needed variables.
+
+```{r}
+seleLine <- lm(formula = audience_score ~ genre + audience_rating + dvd_rel_year + 
+     dvd_rel_day + runtime + thtr_rel_month + imdb_rating + imdb_num_votes, 
+     data = movies)
+
+ summary(seleLine)
+
+```
+
+
+* * *
+
+## Part 5: Prediction
+
+```{r}
+predict(seleLine, newdata = data.frame(genre="Action & Adventure", audience_rating="Upright", dvd_rel_year=2016, dvd_rel_day=7, runtime=108, thtr_rel_month=3, imdb_rating=8.0,imdb_num_votes=406188),interval = "confidence")
+
+```
+
+The prediction audience score of Zootopia which is released in 2016 is 86.3.
+The prediction interval is 83.4 to 89.1 which means 95% that the audience score might be in the interval.
+The datas are from the Rotten Potatoes and The IMDb.
+
+* * *
+
+## Part 6: Conclusion
+
+In the experiment, at first I want to conclude rule of the audience score for different type of the films, but later on it seems difficult to seperate different type. And the variable I choose first does not influence the result a lot.
+But we can still find that the genre of the films still influence the result a lot with another few variables.
+In the further studying, I should be more patient to learn the datas deeply.
+
